@@ -3,43 +3,39 @@ require 'gserver'
 class ChatServer < GServer
   def initialize(*args)
     super(*args)
-    
-    # Keep an overall record of the client IDs allocated
-    # and the lines of chat
-    @@client_id = 0 # Keeps track of # of users
-    @@chat = [] # Array housing comments?
+
+    @@client_id = 0   # Keeps track of # of users who have logged in
+    @@chat = []       # Array housing speaker & comments
   end
   
   def serve(io)
-    # Increment the client ID so each client gets a unique ID
-    @@client_id += 1  # Increment ID list
+    @@client_id += 1            # Increment ID list
     my_client_id = @@client_id  # Assign it to current user
-    my_position = @@chat.size   # 
-    
+    my_position = @@chat.size   # Same as client_id
+
     io.puts("Welcome to the chat, client #{@@client_id}!")
-    # Leave a message on the chat queue to signify this client
-    # has joined the chat
+    io.puts("There are currently #{self.connections} connections.")
+
     @@chat << [my_client_id, "I've joined the chat!"]
-    
-    loop do 
-      # Every 5 seconds check to see if we are receiving any data 
-      if IO.select([io], nil, nil, 0)
-        # If so, retrieve the data and process it..
-        line = io.readline
-      
-        # If the user says 'quit', disconnect them
-        if line =~ /quit/
+
+    loop do
+      if IO.select([io], nil, nil, 0) # We have a new line!!
+        line = io.readline      
+        
+        if line =~ /quit/     # Disconnect user
           @@chat << [my_client_id, "I've left the chat!"]
           break
         end
 
-        # Shut down the server if we hear 'shutdown'
-        self.stop if line =~ /shutdown/
-      
-        # Add the client's text to the chat array along with the
-        # client's ID
+        if line =~ /report/   # Debugging - outputs the chat log
+          @@chat.each { |line| io.puts line }
+        end
+
+        self.stop if line =~ /shutdown/ # Shut down the server
+
         @@chat << [my_client_id, line]      
-      else
+
+      else  # No new line
         # No data, so print any new lines from the chat stream
         @@chat[my_position..-1].each_with_index do |line, index|
           io.puts("#{line[0]} says: #{line[1]}")
